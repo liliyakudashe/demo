@@ -71,6 +71,7 @@ public class TicTacToeServer {
         protected void channelRead0(ChannelHandlerContext ctx, String msg) {
             msg = msg.trim();
             System.out.println("Received message: " + msg);
+
             if (!gameRunning) {
                 ctx.channel().writeAndFlush("Game over! Please disconnect.\n");
                 return;
@@ -83,6 +84,10 @@ public class TicTacToeServer {
 
             try {
                 String[] tokens = msg.split(" ");
+                if (tokens.length != 2) {
+                    throw new Exception("Invalid format");
+                }
+
                 int x = Integer.parseInt(tokens[0]);
                 int y = Integer.parseInt(tokens[1]);
 
@@ -94,10 +99,10 @@ public class TicTacToeServer {
                     broadcast(displayBoard());
                     if (checkWin(currentPlayer)) {
                         broadcast("Player " + currentPlayer + " wins!\n");
-                        gameRunning = false;
+                        endGame();
                     } else if (isBoardFull()) {
                         broadcast("Game is a draw!\n");
-                        gameRunning = false;
+                        endGame();
                     } else {
                         currentPlayer = (currentPlayer == 'X') ? 'O' : 'X';
                         broadcast("Now it's Player " + currentPlayer + "'s turn.\n");
@@ -149,6 +154,25 @@ public class TicTacToeServer {
                 }
             }
             return true;
+        }
+
+        private void endGame() {
+            gameRunning = false;
+            broadcast("Game over! Disconnect players.....\n");
+
+            if (player1 != null) {
+                player1.writeAndFlush("Thank you for playing!\n").addListener(ChannelFutureListener.CLOSE);
+            }
+            if (player2 != null) {
+                player2.writeAndFlush("Thank you for playing!\n").addListener(ChannelFutureListener.CLOSE);
+            }
+
+            player1 = null;
+            player2 = null;
+            playerCount = 0;
+            Arrays.stream(board).forEach(row -> Arrays.fill(row, EMPTY));
+            currentPlayer = 'X';
+            gameRunning = true;
         }
     }
 }
