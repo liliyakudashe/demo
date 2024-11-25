@@ -1,10 +1,12 @@
+package com.example.demo;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-
-
+import io.netty.handler.codec.string.StringDecoder;
+import io.netty.handler.codec.string.StringEncoder;
 
 import java.util.Arrays;
 
@@ -28,7 +30,7 @@ public class TicTacToeServer {
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel socketChannel) {
-                            socketChannel.pipeline().addLast(new ServerHandler());
+                            socketChannel.pipeline().addLast(new StringDecoder(), new StringEncoder(), new ServerHandler());
                         }
                     });
 
@@ -54,9 +56,11 @@ public class TicTacToeServer {
             if (playerCount == 1) {
                 player1 = ctx.channel();
                 player1.writeAndFlush("Welcome Player 1 (X)\n");
+                System.out.println("Player 1 connected");
             } else if (playerCount == 2) {
                 player2 = ctx.channel();
                 player2.writeAndFlush("Welcome Player 2 (O)\n");
+                System.out.println("Player 2 connected");
                 startGame();
             } else {
                 ctx.channel().writeAndFlush("Game is full!\n").addListener(ChannelFutureListener.CLOSE);
@@ -65,6 +69,8 @@ public class TicTacToeServer {
 
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, String msg) {
+            msg = msg.trim();
+            System.out.println("Received message: " + msg);
             if (!gameRunning) {
                 ctx.channel().writeAndFlush("Game over! Please disconnect.\n");
                 return;
@@ -85,6 +91,7 @@ public class TicTacToeServer {
                 } else {
                     board[x][y] = currentPlayer;
                     broadcast("Player " + currentPlayer + " moved to (" + x + "," + y + ")\n");
+                    broadcast(displayBoard());
                     if (checkWin(currentPlayer)) {
                         broadcast("Player " + currentPlayer + " wins!\n");
                         gameRunning = false;
@@ -103,11 +110,25 @@ public class TicTacToeServer {
 
         private void startGame() {
             broadcast("Game started! Player X goes first.\n");
+            broadcast(displayBoard());
         }
 
         private void broadcast(String message) {
+            System.out.println("Broadcasting message: " + message);
             if (player1 != null) player1.writeAndFlush(message);
             if (player2 != null) player2.writeAndFlush(message);
+        }
+
+        private String displayBoard() {
+            StringBuilder boardString = new StringBuilder();
+            boardString.append("Current Board State:\n");
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    boardString.append(board[i][j]).append(" ");
+                }
+                boardString.append("\n");
+            }
+            return boardString.toString();
         }
 
         private boolean checkWin(char player) {
@@ -129,9 +150,5 @@ public class TicTacToeServer {
             }
             return true;
         }
-
-
     }
 }
-
-
